@@ -161,6 +161,26 @@ async function sendMessages(messages, onChunk) {
       } catch { /* ignore partial JSON */ }
     }
   }
+
+  // Flush any remaining buffered data after stream ends
+  if (buffer) {
+    const trimmed = buffer.trim();
+    if (trimmed.startsWith('data:')) {
+      const data = trimmed.slice(5).trim();
+      if (data && data !== '[DONE]') {
+        try {
+          const json = JSON.parse(data);
+          const delta = config.provider === 'anthropic'
+            ? (json.type === 'content_block_delta' ? json.delta?.text : '')
+            : json.choices?.[0]?.delta?.content;
+          if (delta) {
+            full += delta;
+            onChunk(full);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  }
   return full;
 }
 
@@ -313,9 +333,16 @@ async function sendMessage(text) {
   if (!currentConvo()) newConversation();
   const convo = currentConvo();
 
-  convo.messages.push({ role: 'user', content: text });
+  // Build user message content (text + optional image)
+  const imageBlock = imageToProviderFormat();
+  const content = imageBlock
+    ? [{ type: 'text', text }, imageBlock]
+    : text;
+
+  convo.messages.push({ role: 'user', content });
+  const userText = typeof content === 'string' ? content : content.find(c => c.type === 'text')?.text || '';
   if (convo.messages.filter((m) => m.role === 'user').length === 1) {
-    convo.title = text.length > 32 ? text.slice(0, 32) + '…' : text;
+    convo.title = userText.length > 32 ? userText.slice(0, 32) + '…' : userText;
   }
   saveConvos();
   renderConversations();
@@ -324,7 +351,11 @@ async function sendMessage(text) {
   const messagesEl = document.getElementById('messages');
   document.getElementById('welcome').style.display = 'none';
   messagesEl.style.display = 'flex';
-  messagesEl.appendChild(messageEl('user', text));
+  // Show image preview in user bubble if attached
+  const userContent = imageBlock
+    ? renderMarkdown(userText) + '<br><img src="' + attachedImage.dataUrl + '" style="max-width:200px;border-radius:8px;margin-top:8px;">'
+    : renderMarkdown(userText);
+  messagesEl.appendChild(messageEl('user', userContent));
 
   const asstEl = messageEl('assistant', '');
   const bubble = asstEl.querySelector('.bubble');
@@ -338,6 +369,7 @@ async function sendMessage(text) {
   input.value = '';
   autoResize(input);
   sendBtn.disabled = true;
+  clearImage(); // Clear after sending
 
   try {
     const full = await sendMessages(
@@ -476,9 +508,13 @@ function autoResize(textarea) {
 const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
 
+function canSend() {
+  return (inputEl.value.trim() || attachedImage) && !isStreaming;
+}
+
 inputEl.addEventListener('input', () => {
   autoResize(inputEl);
-  sendBtn.disabled = !inputEl.value.trim() || isStreaming;
+  sendBtn.disabled = !canSend();
 });
 
 inputEl.addEventListener('keydown', (e) => {
@@ -490,7 +526,8 @@ inputEl.addEventListener('keydown', (e) => {
 
 document.getElementById('composer').addEventListener('submit', (e) => {
   e.preventDefault();
-  const text = inputEl.value.trim();
+  let text = inputEl.value.trim();
+  if (!text && attachedImage) text = 'What is in this image?';
   if (!text) return;
   sendMessage(text);
 });
@@ -539,6 +576,62 @@ document.addEventListener('click', (e) => {
     sidebar.classList.remove('open');
   }
 });
+
+/* ============ Image handling ============ */
+
+const imageInput = document.getElementById('imageInput');
+const attachBtn = document.getElementById('attachBtn');
+const imagePreview = document.getElementById('imagePreview');
+let attachedImage = null; // { dataUrl, mimeType }
+
+attachBtn.addEventListener('click', () => imageInput.click());
+
+imageInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast('Please select an image file', true);
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    toast('Image too large (max 20 MB)', true);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    attachedImage = { dataUrl: reader.result, mimeType: file.type };
+    showImagePreview();
+    inputEl.focus();
+  };
+  reader.readAsDataURL(file);
+});
+
+function showImagePreview() {
+  imagePreview.innerHTML = `
+    <img src="${attachedImage.dataUrl}" alt="Attached image" />
+    <button type="button" id="removeImageBtn" title="Remove image">✕</button>
+  `;
+  imagePreview.hidden = false;
+  document.getElementById('removeImageBtn').addEventListener('click', clearImage);
+}
+
+function clearImage() {
+  attachedImage = null;
+  imageInput.value = '';
+  imagePreview.innerHTML = '';
+  imagePreview.hidden = true;
+}
+
+function imageToProviderFormat() {
+  if (!attachedImage) return null;
+  if (config.provider === 'anthropic') {
+    // Anthropic: base64 without data: prefix
+    const base64 = attachedImage.dataUrl.split(',')[1];
+    return { type: 'image', source: { type: 'base64', media_type: attachedImage.mimeType, data: base64 } };
+  }
+  // OpenAI: data URL or base64
+  return { type: 'image_url', image_url: { url: attachedImage.dataUrl } };
+}
 
 /* ============ Init ============ */
 

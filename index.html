@@ -58,8 +58,13 @@
       </div>
 
       <form class="composer" id="composer" autocomplete="off">
-        <textarea id="input" rows="1" placeholder="Send a message… (Enter to send, Shift+Enter for new line)"></textarea>
-        <button type="submit" id="sendBtn" class="send-btn" disabled>↑</button>
+        <div class="image-preview" id="imagePreview" hidden></div>
+        <div class="composer-row">
+          <input type="file" id="imageInput" accept="image/*" hidden />
+          <button type="button" class="icon-btn attach-btn" id="attachBtn" title="Attach image">📎</button>
+          <textarea id="input" rows="1" placeholder="Send a message… (Enter to send, Shift+Enter for new line)"></textarea>
+          <button type="submit" id="sendBtn" class="send-btn" disabled>↑</button>
+        </div>
       </form>
     </main>
   </div>
