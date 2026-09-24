@@ -207,10 +207,15 @@ function deleteConversation(id) {
 
 /* ============ Rendering ============ */
 
-marked.setOptions({ breaks: true });
+if (typeof marked !== 'undefined') marked.setOptions({ breaks: true });
 
 function renderMarkdown(text) {
-  return DOMPurify.sanitize(marked.parse(text || ''));
+  if (typeof marked === 'undefined') return escapeHtml(text || '');
+  try {
+    return DOMPurify.sanitize(marked.parse(text || ''));
+  } catch {
+    return escapeHtml(text || '');
+  }
 }
 
 function renderConversations() {
@@ -379,7 +384,7 @@ function saveSettings() {
   config.maxTokens = parseInt(document.getElementById('maxTokensInput').value, 10) || 0;
   saveConfig(config);
   closeSettings();
-  populateModels();
+  populateModels().catch(() => {});
   if (!config.apiKey) toast('Settings saved — add an API key to start chatting');
   else toast('Settings saved');
 }
@@ -419,11 +424,14 @@ async function populateModels() {
   }
 }
 
-// When user picks "Custom model…", focus the model field in settings
+// When user picks a model, remember it; "Custom model…" opens settings
 document.getElementById('modelSelect').addEventListener('change', (e) => {
   if (e.target.value === '__manual') {
     openSettings();
     document.getElementById('modelInput').focus();
+  } else {
+    config.model = e.target.value;
+    saveConfig(config);
   }
 });
 
@@ -503,7 +511,16 @@ document.getElementById('clearDataBtn').addEventListener('click', () => {
   }
 });
 
-// Close sidebar when clicking outside on mobile
+// Escape closes the settings modal (and the mobile sidebar)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modal = document.getElementById('settingsModal');
+  if (!modal.hidden) { closeSettings(); return; }
+  const sidebar = document.getElementById('sidebar');
+  if (window.innerWidth <= 720 && sidebar.classList.contains('open')) sidebar.classList.remove('open');
+});
+
+// Close sidebar on outside click (mobile)
 document.addEventListener('click', (e) => {
   const sidebar = document.getElementById('sidebar');
   if (window.innerWidth <= 720 && sidebar.classList.contains('open') &&
