@@ -359,12 +359,12 @@ function openSettings() {
   document.getElementById('tempInput').value = config.temperature;
   document.getElementById('maxTokensInput').value = config.maxTokens;
   updateProviderHints();
-  modal.hidden = false;
+  modal.classList.add('open');
   document.getElementById('apiKeyInput').focus();
 }
 
 function closeSettings() {
-  document.getElementById('settingsModal').hidden = true;
+  document.getElementById('settingsModal').classList.remove('open');
 }
 
 function updateProviderHints() {
@@ -503,19 +503,11 @@ document.getElementById('settingsModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeSettings();
 });
 
-document.getElementById('clearDataBtn').addEventListener('click', () => {
-  if (confirm('This deletes your API key and all conversations from this browser. Continue?')) {
-    localStorage.removeItem(CONFIG_KEY);
-    localStorage.removeItem(CONVOS_KEY);
-    location.reload();
-  }
-});
-
 // Escape closes the settings modal (and the mobile sidebar)
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const modal = document.getElementById('settingsModal');
-  if (!modal.hidden) { closeSettings(); return; }
+  if (modal.classList.contains('open')) { closeSettings(); return; }
   const sidebar = document.getElementById('sidebar');
   if (window.innerWidth <= 720 && sidebar.classList.contains('open')) sidebar.classList.remove('open');
 });
