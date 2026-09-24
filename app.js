@@ -130,7 +130,9 @@ async function sendMessages(messages, onChunk) {
     return text;
   }
 
-  // Stream the response
+  // Stream the response. Some providers (e.g. locally hosted Ollama-style
+  // servers) ignore the stream flag and return a plain JSON body — so we
+  // collect the whole response and fall back to non-streaming parsing.
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -178,6 +180,27 @@ async function sendMessages(messages, onChunk) {
             onChunk(full);
           }
         } catch { /* ignore */ }
+      }
+    }
+  }
+
+  // The provider ignored streaming and returned a plain JSON body.
+  if (!full && buffer.trim()) {
+    try {
+      const json = JSON.parse(buffer.trim());
+      const text = config.provider === 'anthropic'
+        ? (json.content || []).map((c) => c.text || '').join('')
+        : json.choices?.[0]?.message?.content || '';
+      if (text) {
+        full = text;
+        onChunk(full);
+      }
+    } catch {
+      // Not JSON — some providers return plain text. Use it verbatim.
+      const text = buffer.trim();
+      if (text) {
+        full = text;
+        onChunk(full);
       }
     }
   }
