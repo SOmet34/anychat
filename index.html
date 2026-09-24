@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AnyChat — Chat with your own AI API key</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-mark">✦</span>
+          <span class="logo-text">AnyChat</span>
+        </div>
+        <button class="icon-btn" id="newChatBtn" title="New chat">+</button>
+      </div>
+      <div class="conversations" id="conversations"></div>
+      <div class="sidebar-footer">
+        <button class="settings-btn" id="sidebarSettingsBtn">
+          <span class="gear">⚙</span> API settings
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" title="Menu">☰</button>
+        <div class="model-picker">
+          <select id="modelSelect" class="model-select"></select>
+        </div>
+        <div class="topbar-spacer"></div>
+        <button class="icon-btn" id="topSettingsBtn" title="Settings">⚙</button>
+      </header>
+
+      <div class="chat" id="chat">
+        <div class="welcome" id="welcome">
+          <div class="welcome-hero">
+            <div class="welcome-mark">✦</div>
+            <h1>Chat with any AI</h1>
+            <p>Enter your own API key in Settings. Nothing is sent anywhere but the model you choose.</p>
+          </div>
+          <div class="quick-questions">
+            <button class="qchip" data-q="Write a haiku about the ocean">Write a haiku about the ocean</button>
+            <button class="qchip" data-q="Explain quantum physics in 3 sentences">Explain quantum physics simply</button>
+            <button class="qchip" data-q="Give me a healthy breakfast idea">Healthy breakfast idea</button>
+          </div>
+        </div>
+        <div class="messages" id="messages"></div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <textarea id="input" rows="1" placeholder="Send a message… (Enter to send, Shift+Enter for new line)"></textarea>
+        <button type="submit" id="sendBtn" class="send-btn" disabled>↑</button>
+      </form>
+    </main>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settingsModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>API settings</h2>
+        <button class="icon-btn" id="closeSettingsBtn" title="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>Provider</span>
+          <select id="providerSelect">
+            <option value="openai">OpenAI-compatible</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>API key</span>
+          <input type="password" id="apiKeyInput" placeholder="sk-… or sk-ant-…" autocomplete="off" />
+          <span class="hint">Stored only in this browser. Never sent anywhere but your chosen provider.</span>
+        </label>
+
+        <label class="field">
+          <span>Base URL</span>
+          <input type="text" id="baseUrlInput" placeholder="https://api.openai.com" />
+          <span class="hint" id="baseUrlHint">Defaults to the provider's public endpoint.</span>
+        </label>
+
+        <label class="field">
+          <span>Model</span>
+          <input type="text" id="modelInput" placeholder="gpt-4o" />
+          <span class="hint" id="modelHint">Leave blank to use the provider's default model.</span>
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Temperature</span>
+            <input type="number" id="tempInput" min="0" max="2" step="0.1" value="0.7" />
+          </label>
+          <label class="field">
+            <span>Max tokens</span>
+            <input type="number" id="maxTokensInput" min="0" step="1" value="2000" />
+          </label>
+        </div>
+
+        <div class="modal-foot">
+          <button class="btn-ghost" id="clearDataBtn">Clear local data</button>
+          <div class="modal-foot-right">
+            <button class="btn-ghost" id="cancelSettingsBtn">Cancel</button>
+            <button class="btn-primary" id="saveSettingsBtn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
