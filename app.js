@@ -9,6 +9,7 @@ const defaultConfig = {
   apiKey: '',
   baseUrl: '',
   model: '',
+  proxyUrl: '',
   temperature: 0.7,
   maxTokens: 2000,
 };
@@ -57,6 +58,13 @@ function baseUrl() {
   return (config.baseUrl || providerInfo().defaultBase).replace(/\/+$/, '');
 }
 
+// When a proxy URL is set, all requests go through it (the provider's API
+// blocks browser requests with CORS). The proxy forwards to the real API
+// server-side, so the browser never calls the provider directly.
+function proxyUrl() {
+  return (config.proxyUrl || '').replace(/\/+$/, '');
+}
+
 /* ============ API calls ============ */
 
 async function authHeaders() {
@@ -70,6 +78,15 @@ async function authHeaders() {
   return base;
 }
 
+// Pick the URL to fetch, routing through the proxy if configured.
+function requestUrl(target) {
+  const proxy = proxyUrl();
+  if (!proxy) return target;
+  const u = new URL(proxy + '/proxy');
+  u.searchParams.set('url', target);
+  return u.toString();
+}
+
 function wireModel(payload) {
   const chosen = document.getElementById('modelSelect').value;
   const model = chosen === '__manual' ? config.model : chosen;
@@ -79,7 +96,7 @@ function wireModel(payload) {
 
 async function fetchModels() {
   const headers = await authHeaders();
-  const res = await fetch(baseUrl() + providerInfo().modelPath, { headers });
+  const res = await fetch(requestUrl(baseUrl() + providerInfo().modelPath), { headers });
   if (!res.ok) throw new Error(`Could not list models (HTTP ${res.status}).`);
   const json = await res.json();
   const list = json.data || json.models || [];
@@ -91,7 +108,7 @@ async function fetchModels() {
 
 async function sendMessages(messages, onChunk) {
   const headers = await authHeaders();
-  const url = baseUrl() + (config.provider === 'anthropic' ? '/v1/messages' : '/v1/chat/completions');
+  const url = requestUrl(baseUrl() + (config.provider === 'anthropic' ? '/v1/messages' : '/v1/chat/completions'));
   const body = buildRequestBody(messages);
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
@@ -356,6 +373,7 @@ function openSettings() {
   document.getElementById('apiKeyInput').value = config.apiKey;
   document.getElementById('baseUrlInput').value = config.baseUrl;
   document.getElementById('modelInput').value = config.model;
+  document.getElementById('proxyUrlInput').value = config.proxyUrl || '';
   document.getElementById('tempInput').value = config.temperature;
   document.getElementById('maxTokensInput').value = config.maxTokens;
   updateProviderHints();
@@ -380,6 +398,7 @@ function saveSettings() {
   config.apiKey = document.getElementById('apiKeyInput').value.trim();
   config.baseUrl = document.getElementById('baseUrlInput').value.trim();
   config.model = document.getElementById('modelInput').value.trim();
+  config.proxyUrl = document.getElementById('proxyUrlInput').value.trim();
   config.temperature = parseFloat(document.getElementById('tempInput').value) || 0.7;
   config.maxTokens = parseInt(document.getElementById('maxTokensInput').value, 10) || 0;
   saveConfig(config);

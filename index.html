@@ -93,6 +93,12 @@
         </label>
 
         <label class="field">
+          <span>Proxy URL (optional)</span>
+          <input type="text" id="proxyUrlInput" placeholder="https://your-worker.workers.dev" />
+          <span class="hint">Cloudflare Worker URL to bypass CORS. See README for setup.</span>
+        </label>
+
+        <label class="field">
           <span>Model</span>
           <input type="text" id="modelInput" placeholder="gpt-4o" />
           <span class="hint" id="modelHint">Leave blank to use the provider's default model.</span>
