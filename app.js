@@ -56,7 +56,11 @@ function providerInfo() {
 }
 
 function baseUrl() {
-  return (config.baseUrl || providerInfo().defaultBase).replace(/\/+$/, '');
+  let base = (config.baseUrl || providerInfo().defaultBase).replace(/\/+$/, '');
+  // The app always appends /v1/... itself, so strip a trailing /v1 if the
+  // user included it — otherwise we'd send /v1/v1/... and get a 404.
+  if (base.endsWith('/v1')) base = base.slice(0, -3);
+  return base;
 }
 
 // When a proxy URL is set, all requests go through it (the provider's API
@@ -97,8 +101,17 @@ function wireModel(payload) {
 
 async function fetchModels() {
   const headers = await authHeaders();
-  const res = await fetch(requestUrl(baseUrl() + providerInfo().modelPath), { headers });
-  if (!res.ok) throw new Error(`Could not list models (HTTP ${res.status}).`);
+  let res;
+  try {
+    res = await fetch(requestUrl(baseUrl() + providerInfo().modelPath), { headers });
+  } catch {
+    // Network/CORS failure — fall back to manual model entry.
+    return null;
+  }
+  if (!res.ok) {
+    // Some local servers don't expose /v1/models — fall back gracefully.
+    return null;
+  }
   const json = await res.json();
   const list = json.data || json.models || [];
   return list
@@ -118,7 +131,15 @@ async function sendMessages(messages, onChunk) {
     try {
       const err = await res.json();
       detail = err.error?.message || err.error?.type || JSON.stringify(err);
-    } catch { /* ignore parse errors */ }
+    } catch {
+      // Server returned non-JSON (e.g. an HTML 404 page) — show a hint.
+      const raw = await res.text().catch(() => '');
+      if (raw && /<!DOCTYPE|<html/i.test(raw)) {
+        detail = `HTTP ${res.status} — got an HTML page instead of JSON. Check your Base URL (it should be http://host:PORT, without /v1)`;
+      } else if (raw) {
+        detail = `HTTP ${res.status}: ${raw.slice(0, 200)}`;
+      }
+    }
     throw new Error(detail);
   }
 
@@ -197,9 +218,9 @@ async function sendMessages(messages, onChunk) {
         onChunk(full);
       }
     } catch {
-      // Not JSON — some providers return plain text. Use it verbatim.
+      // Not JSON — some providers return plain text, others an HTML error page.
       const text = buffer.trim();
-      if (text) {
+      if (text && !/<!DOCTYPE|<html/i.test(text)) {
         full = text;
         onChunk(full);
       }
@@ -488,6 +509,16 @@ async function populateModels() {
   }
   try {
     const models = await fetchModels();
+    if (!models) {
+      // Provider doesn't expose /v1/models — fall back to manual entry.
+      select.innerHTML = '';
+      const manual = document.createElement('option');
+      manual.value = '__manual';
+      manual.textContent = '✏️ Custom model…';
+      select.appendChild(manual);
+      if (config.model) select.value = '__manual';
+      return;
+    }
     select.innerHTML = '';
     for (const m of models) {
       const opt = document.createElement('option');
