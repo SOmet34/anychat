@@ -12,6 +12,7 @@ const defaultConfig = {
   proxyUrl: '',
   temperature: 0.7,
   maxTokens: 2000,
+  stream: true,
 };
 
 function loadConfig() {
@@ -204,13 +205,21 @@ async function sendMessages(messages, onChunk) {
       }
     }
   }
+
+  // Diagnostics: if we still have nothing, surface the raw response so we can
+  // see what the provider actually sent back.
+  if (!full) {
+    console.error('[anychat] empty response. URL:', url);
+    console.error('[anychat] request body:', body);
+    console.error('[anychat] raw response buffer:', buffer);
+  }
   return full;
 }
 
 function buildRequestBody(messages) {
   const base = {
     temperature: Number(config.temperature) || 0.7,
-    stream: true,
+    stream: config.stream !== false,
   };
   if (config.maxTokens) base.max_tokens = Number(config.maxTokens);
 
@@ -431,6 +440,7 @@ function openSettings() {
   document.getElementById('proxyUrlInput').value = config.proxyUrl || '';
   document.getElementById('tempInput').value = config.temperature;
   document.getElementById('maxTokensInput').value = config.maxTokens;
+  document.getElementById('streamInput').checked = config.stream !== false;
   updateProviderHints();
   modal.classList.add('open');
   document.getElementById('apiKeyInput').focus();
@@ -456,6 +466,7 @@ function saveSettings() {
   config.proxyUrl = document.getElementById('proxyUrlInput').value.trim();
   config.temperature = parseFloat(document.getElementById('tempInput').value) || 0.7;
   config.maxTokens = parseInt(document.getElementById('maxTokensInput').value, 10) || 0;
+  config.stream = document.getElementById('streamInput').checked;
   saveConfig(config);
   closeSettings();
   populateModels().catch(() => {});
