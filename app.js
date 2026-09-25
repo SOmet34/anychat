@@ -365,14 +365,16 @@ async function sendMessage(text) {
   if (!currentConvo()) newConversation();
   const convo = currentConvo();
 
-  // Build user message content (text + optional image)
+  // Build user message content (text + optional image).
+  // The image is sent in THIS turn only — we store text-only in history so the
+  // image block isn't re-sent on later turns (which breaks non-vision models).
   const imageBlock = imageToProviderFormat();
-  const content = imageBlock
-    ? [{ type: 'text', text }, imageBlock]
-    : text;
+  const userText = text || (imageBlock ? 'What is in this image?' : '');
+  const apiContent = imageBlock
+    ? [{ type: 'text', text: userText }, imageBlock]
+    : userText;
 
-  convo.messages.push({ role: 'user', content });
-  const userText = typeof content === 'string' ? content : content.find(c => c.type === 'text')?.text || '';
+  convo.messages.push({ role: 'user', content: userText });
   if (convo.messages.filter((m) => m.role === 'user').length === 1) {
     convo.title = userText.length > 32 ? userText.slice(0, 32) + '…' : userText;
   }
@@ -401,6 +403,7 @@ async function sendMessage(text) {
   input.value = '';
   autoResize(input);
   sendBtn.disabled = true;
+  const savedImage = attachedImage;
   clearImage(); // Clear after sending
 
   try {
