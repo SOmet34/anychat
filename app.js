@@ -582,12 +582,16 @@ const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
 
 function canSend() {
-  return (inputEl.value.trim() || attachedImage) && !isStreaming;
+  return (inputEl.value.trim() || hasImage) && !isStreaming;
+}
+
+function updateSendButton() {
+  sendBtn.disabled = !canSend();
 }
 
 inputEl.addEventListener('input', () => {
   autoResize(inputEl);
-  sendBtn.disabled = !canSend();
+  updateSendButton();
 });
 
 inputEl.addEventListener('keydown', (e) => {
@@ -655,7 +659,8 @@ document.addEventListener('click', (e) => {
 const imageInput = document.getElementById('imageInput');
 const attachBtn = document.getElementById('attachBtn');
 const imagePreview = document.getElementById('imagePreview');
-let attachedImage = null; // { dataUrl, mimeType }
+let attachedImage = null; // { dataUrl, mimeType } — the image to send
+let hasImage = false;     // whether an image is currently attached (UI state)
 
 attachBtn.addEventListener('click', () => imageInput.click());
 
@@ -680,6 +685,8 @@ imageInput.addEventListener('change', (e) => {
 });
 
 function showImagePreview() {
+  hasImage = true;
+  updateSendButton();
   imagePreview.innerHTML = `
     <img src="${attachedImage.dataUrl}" alt="Attached image" />
     <button type="button" id="removeImageBtn" title="Remove image">✕</button>
@@ -690,6 +697,8 @@ function showImagePreview() {
 
 function clearImage() {
   attachedImage = null;
+  hasImage = false;
+  updateSendButton();
   imageInput.value = '';
   imagePreview.innerHTML = '';
   imagePreview.hidden = true;
