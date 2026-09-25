@@ -233,6 +233,15 @@ async function sendMessages(messages, onChunk) {
     console.error('[anychat] empty response. URL:', url);
     console.error('[anychat] request body:', body);
     console.error('[anychat] raw response buffer:', buffer);
+    // Last resort: if there's any text at all in the buffer, use it
+    if (buffer.trim()) {
+      const text = buffer.trim();
+      if (!/<!DOCTYPE|<html/i.test(text)) {
+        full = text;
+        onChunk(full);
+        console.warn('[anychat] using raw buffer as fallback:', text.slice(0, 200));
+      }
+    }
   }
   return full;
 }
