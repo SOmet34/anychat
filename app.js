@@ -424,12 +424,17 @@ async function sendMessage(text) {
   input.value = '';
   autoResize(input);
   sendBtn.disabled = true;
-  const savedImage = attachedImage;
   clearImage(); // Clear after sending
 
   try {
+    // Send the current image only once. Keep conversation history text-only
+    // so later turns still work with models that do not support vision.
+    const apiMessages = convo.messages.map(({ role, content }) => ({ role, content }));
+    if (apiContent !== userText) {
+      apiMessages[apiMessages.length - 1] = { role: 'user', content: apiContent };
+    }
     const full = await sendMessages(
-      convo.messages.map(({ role, content }) => ({ role, content })),
+      apiMessages,
       (partial) => {
         bubble.innerHTML = renderMarkdown(partial);
         scrollChatToBottom();
